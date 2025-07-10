@@ -1,14 +1,17 @@
 # Masraf-10th-July-4
- Overview 
- Objectives 
- Creating Database 
+## Overview 
+## Objectives 
 
+To design a MySQL database system for storing, analyzing, and visualizing real-time and historical forex market data, enabling traders to track currency pairs, trends, and trading performance with efficient querying capabilities
+
+## Creating Database 
+``` sql
 CREATE DATABASE MD10thJ4_db;
 USE MD10thJ4_db;
-
- Creating Tables
- Table:currencies
-
+```
+## Creating Tables
+### Table:currencies
+ sql
 CREATE TABLE currencies(
     currency_id     INT PRIMARY KEY AUTO_INCREMENT,
     currency_code   TEXT,
@@ -19,9 +22,9 @@ CREATE TABLE currencies(
 );
 
 SELECT * FROM currencies ;
-
- Table:exchange_rates
-
+```
+### Table:exchange_rates
+``` sql
 CREATE TABLE exchange_rates(
     rate_id               INT PRIMARY KEY AUTO_INCREMENT,
     base_currency_id      INT,
@@ -37,9 +40,9 @@ CREATE TABLE exchange_rates(
 );
 
 SELECT * FROM exchange_rates ;
-
- Table:economic_events
-
+```
+### Table:economic_events
+``` sql
 CREATE TABLE economic_events(
     event_id          INT PRIMARY KEY AUTO_INCREMENT,
     currency_id       INT,
@@ -53,9 +56,9 @@ CREATE TABLE economic_events(
 );
 
 SELECT * FROM economic_events ;
-
- Table:tick_data
-
+```
+### Table:tick_data
+``` sql
 CREATE TABLE tick_data(
     tick_id              INT PRIMARY KEY AUTO_INCREMENT,
     base_currency_id     INT,
@@ -69,10 +72,11 @@ CREATE TABLE tick_data(
 );
 
 SELECT * FROM tick_data ;
-
+```
 ## KEY Queries 
 
 #### 1. List all major currency pairs with their average daily trading range (high-low) for June 2023.
+``` sql
 SELECT 
     CONCAT(b.currency_code, '/', t.currency_code) AS currency_pair,
     ROUND(AVG(er.high_rate - er.low_rate), 6) AS avg_daily_range,
@@ -87,8 +91,9 @@ WHERE
     er.rate_date BETWEEN '2023-06-01' AND '2023-06-30'
 GROUP BY b.currency_code, t.currency_code
 ORDER BY avg_daily_range DESC;
-
+```
 #### 2. Show currency pairs that had a positive change for 3+ consecutive days.
+``` sql
 WITH ranked_changes AS (
     SELECT 
         er.rate_id,er.base_currency_id,er.target_currency_id,
@@ -115,8 +120,9 @@ WHERE daily_change_pct > 0
 GROUP BY currency_pair, grp
 HAVING COUNT(*) >= 3
 ORDER BY total_gain_pct DESC;
-
-#### 3. Find currencies that moved more than 1% in a single day against the USD.    
+```
+#### 3. Find currencies that moved more than 1% in a single day against the USD. 
+``` sql   
 SELECT 
     CONCAT(b.currency_code, '/', t.currency_code) AS currency_pair,
     er.rate_date,
@@ -133,8 +139,9 @@ WHERE
     (b.currency_code = 'USD' OR t.currency_code = 'USD') AND
     ABS(er.daily_change_pct) > 1
 ORDER BY er.rate_date, ABS(er.daily_change_pct) DESC;
-
-#### 4. Compare exchange rate movements before/after high-impact economic events. 
+```
+#### 4. Compare exchange rate movements before/after high-impact economic events.
+``` sql 
  SELECT 
     ee.event_date,
     CONCAT(b.currency_code, '/', t.currency_code) AS currency_pair,
@@ -161,8 +168,9 @@ WHERE
     AND post_event.base_currency_id = pre_event.base_currency_id
     AND post_event.target_currency_id = pre_event.target_currency_id
 ORDER BY ee.event_date, currency_pair;
-
+```
 #### 5. Identify events where the actual value differed from forecast by more than 20%.
+``` sql
 SELECT 
     ee.event_name,
     ee.actual_value,
@@ -176,8 +184,9 @@ FROM economic_events ee
 JOIN currencies c ON ee.currency_id = c.currency_id
 WHERE ABS(ee.actual_value - ee.forecast_value) / NULLIF(ee.forecast_value, 0) > 0.20
 ORDER BY deviation_percentage DESC;
-
+```
 #### 7. Rank currency pairs by their 10-day historical volatility.
+``` sql
 WITH daily_changes AS (
     SELECT 
         er.rate_id,
@@ -209,8 +218,9 @@ FROM rolling_volatility
 GROUP BY currency_pair
 HAVING COUNT(*) >= 10
 ORDER BY latest_10d_volatility DESC;
-
+```
 #### 8. Find days when EUR/USD had unusually high volatility (top 5% of daily ranges).
+``` sql
 SELECT
     rate_date,
     (high_rate - low_rate) AS daily_range,
@@ -235,8 +245,9 @@ FROM (
 ) ranked_ranges
 HAVING percentile >= 95
 ORDER BY daily_range DESC;
-
+```
 #### 9. Compare Asian vs London vs New York session volatility for major pairs.
+``` sql
 SELECT 
     CONCAT(b.currency_code, '/', t.currency_code) AS currency_pair,
     CASE 
@@ -253,8 +264,9 @@ JOIN currencies t ON td.target_currency_id = t.currency_id
 WHERE b.is_major = TRUE AND t.is_major = TRUE
 GROUP BY currency_pair, trading_day, session
 ORDER BY currency_pair, trading_day, session;
-
+```
 #### 10. Show currency pairs with the highest 30-day rolling correlation to EUR/USD.
+``` sql
 WITH daily_returns AS (
     SELECT 
         rate_date,
@@ -331,8 +343,9 @@ SELECT
 FROM rolling_correlations
 GROUP BY currency_pair
 ORDER BY ABS(AVG(correlation)) DESC;
-
+```
 #### 11. Identify currencies that typically move inversely 
+``` sql
 WITH daily_returns AS (
     SELECT 
         rate_date,
@@ -401,8 +414,9 @@ FROM correlation_data
 WHERE denominator != 0 
 AND (covariance / denominator) < -0.3 
 ORDER BY correlation_coefficient ASC;
-
+```
 #### 12. Calculate average bid-ask spreads by hour of day for EUR/USD.
+``` sql
 SELECT 
     HOUR(td.timestamp) AS hour_utc,
     ROUND(AVG(td.ask_price - td.bid_price), 6) AS avg_spread,
@@ -413,8 +427,9 @@ JOIN currencies t ON td.target_currency_id = t.currency_id
 WHERE b.currency_code = 'EUR' AND t.currency_code = 'USD'
 GROUP BY HOUR(td.timestamp)
 ORDER BY hour_utc;
-
+```
 #### 13. Find the most active trading hours (by volume) for each major currency pair.
+``` sql
 WITH hourly_volume AS (
     SELECT 
         CONCAT(b.currency_code, '/', t.currency_code) AS currency_pair,
@@ -439,8 +454,9 @@ SELECT
 FROM ranked_volume
 WHERE rnk = 1
 ORDER BY currency_pair;
-
+```
 #### 14. Detect days when a currency pair formed a "bullish engulfing" candle pattern.
+``` sql
 SELECT 
     CONCAT(cb.currency_code, '/', ct.currency_code) AS currency_pair,
     e2.rate_date AS bullish_engulf_date,
@@ -453,4 +469,221 @@ JOIN exchange_rates e2
     ON e1.base_currency_id = e2.base_currency_id 
     AND e1.target_currency_id = e2.target_currency_id
     AND e2.rate_date = DATE_ADD(e1.rate_date, INTERVAL 1 DAY)
-JOIN 
+JOIN currencies cb ON e2.base_currency_id = cb.currency_id
+JOIN currencies ct ON e2.target_currency_id = ct.currency_id
+WHERE 
+    e1.close_rate < e1.open_rate AND
+    e2.open_rate < e1.close_rate AND
+    e2.close_rate > e1.open_rate
+ORDER BY e2.rate_date, currency_pair;
+```
+#### 15. Identify support/resistance levels where prices reversed 3+ times.
+``` sql
+WITH pair_data AS (
+    SELECT 
+        er.base_currency_id,
+        er.target_currency_id,
+        er.rate_date,
+        er.open_rate,
+        er.close_rate,
+        ROUND(er.close_rate, 3) AS rounded_close,
+        CASE 
+            WHEN er.close_rate > er.open_rate THEN 'up'
+            WHEN er.close_rate < er.open_rate THEN 'down'
+            ELSE 'flat'
+        END AS direction
+    FROM exchange_rates er
+),
+reversal_points AS (
+    SELECT 
+        p1.base_currency_id,
+        p1.target_currency_id,
+        p2.rate_date,
+        p1.rounded_close AS level,
+        p1.direction AS dir1,
+        p2.direction AS dir2
+    FROM pair_data p1
+    JOIN pair_data p2 
+        ON p1.base_currency_id = p2.base_currency_id 
+        AND p1.target_currency_id = p2.target_currency_id 
+        AND p2.rate_date = DATE_ADD(p1.rate_date, INTERVAL 1 DAY)
+        AND ABS(p1.rounded_close - p2.rounded_close) <= 0.002  
+    WHERE p1.direction != p2.direction
+),
+level_counts AS (
+    SELECT 
+        CONCAT(b.currency_code, '/', t.currency_code) AS currency_pair,
+        level,
+        COUNT(*) AS reversal_count
+    FROM reversal_points r
+    JOIN currencies b ON r.base_currency_id = b.currency_id
+    JOIN currencies t ON r.target_currency_id = t.currency_id
+    GROUP BY currency_pair, level
+)
+SELECT 
+    currency_pair,
+    level,
+    reversal_count
+FROM level_counts
+WHERE reversal_count >= 3
+ORDER BY reversal_count DESC;
+```
+#### 16. Find potential triangular arbitrage opportunities in the tick data.
+``` sql
+WITH currency_triples AS (
+    SELECT 
+        a.base_currency_id AS currency1,
+        a.target_currency_id AS currency2,
+        b.target_currency_id AS currency3
+    FROM tick_data a
+    JOIN tick_data b ON a.target_currency_id = b.base_currency_id
+    WHERE a.base_currency_id <> b.target_currency_id
+    GROUP BY 1, 2, 3
+),
+arbitrage_opportunities AS (
+    SELECT 
+        t1.timestamp,
+        c1.currency_code AS currency1_code,
+        c2.currency_code AS currency2_code,
+        c3.currency_code AS currency3_code,
+        t1.ask_price AS leg1_ask,  
+        t2.bid_price AS leg2_bid,   
+        t3.bid_price AS leg3_bid,  
+
+        ((1 / t1.ask_price) * t2.bid_price * t3.bid_price - 1) * 100 AS profit_pct,
+        TIMESTAMPDIFF(SECOND, t1.timestamp, 
+                      LEAST(
+                          COALESCE((SELECT MIN(timestamp) FROM tick_data 
+                                   WHERE timestamp > t1.timestamp AND 
+                                         base_currency_id = t1.base_currency_id AND 
+                                         target_currency_id = t1.target_currency_id), 
+                                  t1.timestamp + INTERVAL 1 HOUR),
+                          COALESCE((SELECT MIN(timestamp) FROM tick_data 
+                                   WHERE timestamp > t1.timestamp AND 
+                                         base_currency_id = t2.base_currency_id AND 
+                                         target_currency_id = t2.target_currency_id), 
+                                  t1.timestamp + INTERVAL 1 HOUR),
+                          COALESCE((SELECT MIN(timestamp) FROM tick_data 
+                                   WHERE timestamp > t1.timestamp AND 
+                                         base_currency_id = t3.base_currency_id AND 
+                                         target_currency_id = t3.target_currency_id), 
+                                  t1.timestamp + INTERVAL 1 HOUR)
+                      )) AS opportunity_window_seconds
+    FROM tick_data t1
+    JOIN tick_data t2 ON t1.target_currency_id = t2.base_currency_id 
+                     AND t2.timestamp = (
+                         SELECT MIN(timestamp) 
+                         FROM tick_data 
+                         WHERE timestamp >= t1.timestamp 
+                         AND base_currency_id = t2.base_currency_id 
+                         AND target_currency_id = t2.target_currency_id
+                     )
+    JOIN tick_data t3 ON t2.target_currency_id = t3.target_currency_id 
+                     AND t3.base_currency_id = t1.base_currency_id
+                     AND t3.timestamp = (
+                         SELECT MIN(timestamp) 
+                         FROM tick_data 
+                         WHERE timestamp >= t2.timestamp 
+                         AND base_currency_id = t3.base_currency_id 
+                         AND target_currency_id = t3.target_currency_id
+                     )
+    JOIN currencies c1 ON t1.base_currency_id = c1.currency_id
+    JOIN currencies c2 ON t1.target_currency_id = c2.currency_id
+    JOIN currencies c3 ON t2.target_currency_id = c3.currency_id
+    WHERE ((1 / t1.ask_price) * t2.bid_price * t3.bid_price) > 1.0001 
+)
+SELECT 
+    timestamp,
+    CONCAT(currency1_code, '/', currency2_code, ' → ',
+    currency2_code, '/', currency3_code, ' → ', 
+    currency3_code, '/', currency1_code) AS arbitrage_path,
+    profit_pct,
+    opportunity_window_seconds,
+    profit_pct AS max_profit_pct
+FROM arbitrage_opportunities
+ORDER BY profit_pct DESC
+LIMIT 10;
+```
+#### 17. Calculate how long arbitrage opportunities typically last.
+``` sql
+SELECT 
+    c1.currency_code AS currency1,
+    c2.currency_code AS currency2,
+    c3.currency_code AS currency3,
+    MIN(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15)*15)) AS start_time,
+    MAX(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15)*15)) AS end_time,
+    TIMESTAMPDIFF(SECOND, 
+        MIN(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15)*15)), 
+        MAX(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15)*15))
+    ) + 15 AS duration_seconds,
+    COUNT(DISTINCT FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15)) AS interval_count
+FROM tick_data t1
+JOIN tick_data t2 
+    ON FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15) = FLOOR(UNIX_TIMESTAMP(t2.timestamp)/15)
+    AND t1.target_currency_id = t2.base_currency_id
+JOIN tick_data t3 
+    ON FLOOR(UNIX_TIMESTAMP(t1.timestamp)/15) = FLOOR(UNIX_TIMESTAMP(t3.timestamp)/15)
+    AND t2.target_currency_id = t3.base_currency_id
+    AND t3.target_currency_id = t1.base_currency_id
+JOIN currencies c1 ON t1.base_currency_id = c1.currency_id
+JOIN currencies c2 ON t1.target_currency_id = c2.currency_id
+JOIN currencies c3 ON t2.target_currency_id = c3.currency_id
+WHERE (t1.bid_price * t2.bid_price * t3.bid_price) > 1.0005
+  AND t1.base_currency_id = LEAST(t1.base_currency_id, t1.target_currency_id, t2.target_currency_id)
+GROUP BY t1.base_currency_id, t1.target_currency_id, t2.target_currency_id
+HAVING interval_count > 1
+ORDER BY duration_seconds DESC;
+```
+#### 20. Identify currencies that consistently strengthened/weakened over a 30-day period.
+``` sql
+WITH recent_rates AS (
+    SELECT 
+        b.currency_id,
+        b.currency_code AS base_currency,
+        t.currency_code AS target_currency,
+        er.rate_date,
+        er.close_rate,
+        LAG(er.close_rate) OVER (PARTITION BY er.base_currency_id ORDER BY er.rate_date) AS prev_close_rate
+    FROM exchange_rates er
+    JOIN currencies b ON er.base_currency_id = b.currency_id
+    JOIN currencies t ON er.target_currency_id = t.currency_id
+    WHERE t.currency_code = 'USD' 
+      AND er.rate_date >= DATE_SUB('2023-06-30', INTERVAL 30 DAY) -- Change date to find data before the date
+      AND b.is_major = TRUE
+),
+daily_trends AS (
+    SELECT 
+        base_currency,
+        rate_date,
+        CASE 
+            WHEN close_rate > prev_close_rate THEN 1
+            WHEN close_rate < prev_close_rate THEN -1
+            ELSE 0
+        END AS day_trend
+    FROM recent_rates
+    WHERE prev_close_rate IS NOT NULL
+),
+trend_summary AS (
+    SELECT 
+        base_currency,
+        SUM(day_trend = 1) AS up_days,
+        SUM(day_trend = -1) AS down_days,
+        COUNT(*) AS total_days
+    FROM daily_trends
+    GROUP BY base_currency
+)
+SELECT 
+    base_currency,
+    up_days,
+    down_days,
+    total_days,
+    CASE
+        WHEN up_days = total_days THEN 'Consistently Strengthened'
+        WHEN down_days = total_days THEN 'Consistently Weakened'
+        ELSE 'Mixed'
+    END AS trend_status
+FROM trend_summary
+WHERE up_days = total_days OR down_days = total_days
+ORDER BY base_currency;
+```
+## Conclusion 
